@@ -1,40 +1,51 @@
-// RuneLite Plugin build file
+package com.ilikeclouds.pricepredictorplugin;
 
-plugins {
-    id 'java'
-    id 'com.github.johnrengelman.shadow' version '8.1.1'
-    id 'maven-publish'
-}
+import java.util.List;
 
-group   = 'com.ilikeclouds'
-version = '1.0.0'
+/**
+ * Mirrors the JSON structure written by predict_trends.py.
+ * Gson populates this automatically when we parse the API response.
+ */
+public class PredictionData
+{
+    public int     item_id;
+    public String  item_name;
+    public String  generated_at;
+    public String  stale_after;
+    public String  regime_start;
+    public int     regime_days;
+    public String  model_tier;
+    public int     current_price;
+    public List<ForecastDay> forecast;
+    public Metrics metrics;
 
-repositories {
-    mavenLocal()
-    maven { url = 'https://repo.runelite.net' }
-    mavenCentral()
-}
+    /** One row in the 7-day forecast table. */
+    public static class ForecastDay
+    {
+        public String date;
+        public int    predicted_price;
+        public int    change_from_now;
+    }
 
-dependencies {
-    // RuneLite client — 'changing: true' means Gradle always checks for updates
-    compileOnly(group: 'net.runelite.client', name: 'client', version: '+', changing: true)
+    /** Model quality metrics returned alongside the forecast. */
+    public static class Metrics
+    {
+        public Double mae;
+        public Double r2;
+    }
 
-    // Lombok — reduces boilerplate (@Slf4j, @Getter, etc.)
-    compileOnly(group: 'org.projectlombok', name: 'lombok', version: '1.18.30')
-    annotationProcessor(group: 'org.projectlombok', name: 'lombok', version: '1.18.30')
-
-    // Gson is included in the RuneLite client — we declare it compileOnly
-    compileOnly(group: 'com.google.code.gson', name: 'gson', version: '2.10.1')
-
-    // OkHttp is also bundled in RuneLite
-    compileOnly(group: 'com.squareup.okhttp3', name: 'okhttp', version: '4.12.0')
-}
-
-java {
-    sourceCompatibility = JavaVersion.VERSION_11
-    targetCompatibility = JavaVersion.VERSION_11
-}
-
-shadowJar {
-    archiveClassifier = ''
+    /** True if the data is older than stale_after (i.e. the nightly job hasn't run yet). */
+    public boolean isStale()
+    {
+        if (stale_after == null) return false;
+        try
+        {
+            java.time.Instant staleInstant = java.time.Instant.parse(stale_after);
+            return java.time.Instant.now().isAfter(staleInstant);
+        }
+        catch (Exception e)
+        {
+            return false;
+        }
+    }
 }
